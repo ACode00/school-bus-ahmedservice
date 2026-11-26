@@ -1,35 +1,32 @@
+const crypto = require('node:crypto');
 const { AppError } = require('./error-handler');
 const { recordSafely } = require('../services/audit.service');
 
-function parseIdentityCenterPrincipal(arn) {
-  if (typeof arn !== 'string') return null;
-  const match = /^arn:[^:]+:sts::\d{12}:assumed-role\/(?:AWSReservedSSO_)?(BusTrackerParents|BusTrackerCoordinators|BusTrackerAdmins)_[^/]+\/([^/]+)$/.exec(arn);
-  if (!match) return null;
-  const roles = { BusTrackerParents: 'parent', BusTrackerCoordinators: 'supervisor', BusTrackerAdmins: 'admin' };
-  return { identityStoreUserId: match[2], role: roles[match[1]] };
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function requireAuth({ models, auditService, logger }) {
   return async (req, res, next) => {
     try {
-      const principal = parseIdentityCenterPrincipal(req.get('x-iam-user-arn'));
-      const claim = principal && await models.identityClaims.get({ identity_store_user_id: principal.identityStoreUserId });
-      const user = claim && await models.users.get({ id: claim.user_id });
-      if (!user) {
+      const authorization = req.get('authorization') || '';
+      const match = /^Bearer\s+([A-Za-z0-9_-]{40,})$/i.exec(authorization);
+      const tokenHash = match ? hashToken(match[1]) : null;
+      const session = tokenHash && await models.sessions.get({ id: tokenHash });
+      const now = Math.floor(Date.now() / 1000);
+      if (!session || Number(session.expires_at) <= now) {
+        if (session) await models.sessions.delete({ id: session.id });
         logger?.warn({ event: 'auth_failure', request_id: req.id, status: 401 });
         await recordSafely(auditService, { userId: 'anonymous', event: 'authentication_failed', status: 'failure', metadata: { method: req.method, path: req.path } }, logger);
-        next(new AppError(401, 'UNAUTHENTICATED', 'A linked Identity Center identity is required'));
-        return;
+        return next(new AppError(401, 'UNAUTHENTICATED', 'A valid login session is required'));
       }
-      if (user.role !== principal.role) {
-        await recordSafely(auditService, { userId: user.id, event: 'identity_role_mismatch', status: 'failure' }, logger);
-        next(new AppError(403, 'IDENTITY_ROLE_MISMATCH', 'Identity Center role does not match the application profile'));
-        return;
-      }
+      const user = await models.users.get({ id: session.user_id });
+      if (!user) return next(new AppError(401, 'UNAUTHENTICATED', 'A valid login session is required'));
       req.user = user;
-      next();
-    } catch (error) { next(error); }
+      req.authSession = session;
+      return next();
+    } catch (error) { return next(error); }
   };
 }
 
-module.exports = { requireAuth, parseIdentityCenterPrincipal };
+module.exports = { requireAuth, hashToken };

@@ -11,7 +11,6 @@ describe('standalone infrastructure shell entrypoints', () => {
     ['iam', 'iam'],
     ['ecs', 'ecs'],
     ['api-gateway', 'apiGateway'],
-    ['identity-center', 'identityCenter'],
   ])('%s runs only its own provisioner selector', (file, selector) => {
     const script = fs.readFileSync(path.join(infraDir, `${file}.sh`), 'utf8');
     expect(script).toMatch(new RegExp(`node scripts/provision\\.js ${selector}`));
@@ -27,9 +26,8 @@ describe('standalone infrastructure shell entrypoints', () => {
     expect(cacheScript).toContain('node scripts/provision.js cache');
     expect(cacheScript).toContain('node scripts/cache-smoke.js');
     expect(cacheScript).toContain('cd "$ROOT_DIR"');
-    for (const script of ['dynamodb.sh', 'sqs.sh', 'cloudwatch-logs.sh', 'iam.sh', 'cache.sh', 'api-gateway.sh', 'identity-center.sh', 'ecs.sh']) {
+    for (const script of ['dynamodb.sh', 'sqs.sh', 'cloudwatch-logs.sh', 'iam.sh', 'cache.sh', 'api-gateway.sh', 'ecs.sh']) {
       expect(bootstrap).toContain(script);
     }
-    expect(bootstrap.indexOf('api-gateway.sh')).toBeLessThan(bootstrap.indexOf('identity-center.sh'));
   });
 });

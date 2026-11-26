@@ -78,12 +78,12 @@ async function provision({ apiGateway }, config = {}) {
     const method = route.method;
     await ensureMethod(apiGateway, {
       restApiId: apiId, resourceId, httpMethod: method,
-      authorizationType: route.public ? 'NONE' : 'AWS_IAM',
+      authorizationType: 'NONE',
       requestParameters: Object.fromEntries(parameters.map((key) => [key, true])),
     });
     const backendPath = route.path.replace(/\{([^}]+)\}/g, '{$1}');
     const uri = `${backend.origin}${backend.pathname.replace(/\/$/, '')}${backendPath}`;
-    const requestParameters = { 'integration.request.header.X-IAM-User-Arn': 'context.identity.userArn' };
+    const requestParameters = {};
     for (const match of route.path.matchAll(/\{([^}]+)\}/g)) requestParameters[`integration.request.path.${match[1]}`] = `method.request.path.${match[1]}`;
     await ensureIntegration(apiGateway, {
       restApiId: apiId, resourceId, httpMethod: method,

@@ -3,11 +3,12 @@ const { TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 const { createApp } = require('../../app');
 const { CacheService } = require('../../services/cache.service');
 const { createRedisTestClient } = require('../helpers/redis-client');
+const { authHeader, sessionLookup } = require('../helpers/auth');
 
 function setup(role = 'admin') {
   const trip = { id: 'trip-1', route_id: 'route-1', bus_id: 'bus-1', status: 'scheduled' };
   const models = {
-    users: { tableName: 'Users', get: jest.fn().mockImplementation(async ({ id }) => id === 'parent-1' ? { id, role: 'parent' } : { id: 'user-1', role }) }, identityClaims: { get: jest.fn().mockResolvedValue({ user_id: 'user-1' }) }, auditLogs: { tableName: 'AuditLogs' },
+    users: { tableName: 'Users', get: jest.fn().mockImplementation(async ({ id }) => id === 'parent-1' ? { id, role: 'parent' } : { id: 'user-1', role }) }, sessions: sessionLookup('user-1'), auditLogs: { tableName: 'AuditLogs' },
     trips: { tableName: 'Trips', get: jest.fn().mockResolvedValue(trip) },
     routes: { get: jest.fn().mockResolvedValue({ id: 'route-1', name: 'North' }), list: jest.fn().mockResolvedValue([]), create: jest.fn().mockImplementation(async (item) => item), update: jest.fn(), delete: jest.fn(), findByName: jest.fn().mockResolvedValue([]), findByArea: jest.fn().mockResolvedValue([]) },
     stops: { get: jest.fn().mockResolvedValue({ id: 'stop-1', route_id: 'route-1', name: 'Gate', stop_order: 1 }), findByRouteId: jest.fn().mockResolvedValue([{ id: 'stop-1', route_id: 'route-1', name: 'Gate', stop_order: 1 }]), create: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'stop-1', route_id: 'route-1', name: 'Main Gate', stop_order: 2 }), delete: jest.fn() },
@@ -25,7 +26,7 @@ function setup(role = 'admin') {
   return { app: createApp({ services, config: { corsOrigins: [], sessionTtlSeconds: 28_800 } }), services };
 }
 
-const authFor = (role = 'admin') => ({ 'X-IAM-User-Arn': `arn:aws:sts::000000000000:assumed-role/AWSReservedSSO_BusTracker${role === 'supervisor' ? 'Coordinators' : role === 'parent' ? 'Parents' : 'Admins'}_abc/user-1` });
+const authFor = () => authHeader();
 const auth = authFor();
 
 test('ETA returns ordered arrival windows and serves cache HIT until times are replaced', async () => {

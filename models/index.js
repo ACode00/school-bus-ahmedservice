@@ -1,4 +1,6 @@
 const createUsersModel = require('./users.model');
+const createSessionsModel = require('./sessions.model');
+const createUserEmailsModel = require('./user-emails.model');
 const createRoutesModel = require('./routes.model');
 const createStopsModel = require('./stops.model');
 const createBusesModel = require('./buses.model');
@@ -17,6 +19,8 @@ function createModels({ client }) {
   const context = { client };
   return {
     users: createUsersModel(context),
+    sessions: createSessionsModel(context),
+    userEmails: createUserEmailsModel(context),
     routes: createRoutesModel(context),
     stops: createStopsModel(context),
     buses: createBusesModel(context),

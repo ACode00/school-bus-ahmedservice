@@ -1,5 +1,7 @@
 const TABLE_NAMES = Object.freeze({
   users: 'Users',
+  sessions: 'Sessions',
+  userEmails: 'UserEmails',
   routes: 'Routes',
   stops: 'Stops',
   buses: 'Buses',

@@ -6,7 +6,7 @@ const { API_METHODS, ROLE_ROUTE_PATTERNS } = require('../../config/api-route-per
 const { permissionPolicy } = require('../../scripts/provision/identity-center');
 const { provision } = require('../../scripts/provision/api-gateway');
 
-test('configures IAM methods, public health, private proxy identity mapping, and a deployed stage', async () => {
+test('configures open API Gateway forwarding and leaves app authentication to bearer sessions', async () => {
   const paths = new Map([['/', { id: 'root', path: '/' }]]);
   const apiGateway = { send: jest.fn(async (command) => {
     if (command instanceof CreateRestApiCommand) return { id: 'api-1' };
@@ -23,8 +23,8 @@ test('configures IAM methods, public health, private proxy identity mapping, and
   const integrations = apiGateway.send.mock.calls.map(([command]) => command).filter((command) => command instanceof PutIntegrationCommand);
   expect(methods).toHaveLength(API_METHODS.length);
   expect(methods.find((command) => command.input.resourceId === paths.get('/health').id).input.authorizationType).toBe('NONE');
-  expect(methods.filter((command) => command.input.authorizationType === 'AWS_IAM')).toHaveLength(API_METHODS.length - 1);
-  expect(integrations[0].input.requestParameters['integration.request.header.X-IAM-User-Arn']).toBe('context.identity.userArn');
+  expect(methods.every((command) => command.input.authorizationType === 'NONE')).toBe(true);
+  expect(integrations.every((command) => !command.input.requestParameters?.['integration.request.header.X-IAM-User-Arn'])).toBe(true);
   expect(integrations.every((command) => command.input.type === 'HTTP_PROXY')).toBe(true);
   expect(apiGateway.send.mock.calls.some(([command]) => command instanceof CreateDeploymentCommand)).toBe(true);
   expect(result).toMatchObject({ apiId: 'api-1', stage: 'local', invokeUrl: 'http://floci:4566/restapis/api-1/local/_user_request_' });

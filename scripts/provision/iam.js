@@ -29,7 +29,6 @@ async function provision({ iam }, config = {}) {
   const workerRoleName = config.workerRoleName || 'BusTrackerWorkerTaskRole';
   const executionRoleName = config.executionRoleName || 'BusTrackerEcsExecutionRole';
   const queueName = config.queueName || process.env.SQS_QUEUE_NAME || 'bus-tracker-notifications-queue';
-  const identityStoreId = config.ssoIdentityStoreId || process.env.SSO_IDENTITY_STORE_ID;
   const logGroup = config.logGroupName || process.env.CLOUDWATCH_LOG_GROUP || '/school-bus-tracker/backend';
   const taskTrust = { Version: '2012-10-17', Statement: [{ Effect: 'Allow', Principal: { Service: 'ecs-tasks.amazonaws.com' }, Action: 'sts:AssumeRole' }] };
   const apiRole = await ensureRole(iam, apiRoleName, taskTrust);
@@ -45,7 +44,6 @@ async function provision({ iam }, config = {}) {
       { Effect: 'Allow', Action: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem', 'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:TransactWriteItems'], Resource: tableArns },
       { Effect: 'Allow', Action: ['sqs:GetQueueUrl', 'sqs:SendMessage'], Resource: [`arn:aws:sqs:${region}:${account}:${queueName}`] },
       { Effect: 'Allow', Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: [`arn:aws:logs:${region}:${account}:log-group:${logGroup}:*`] },
-      ...(identityStoreId ? [{ Effect: 'Allow', Action: ['identitystore:DescribeUser'], Resource: [`arn:aws:identitystore::${account}:identitystore/${identityStoreId}`] }] : []),
     ] }),
   }));
   const alertsTableArn = `arn:aws:dynamodb:${region}:${account}:table/Alerts`;

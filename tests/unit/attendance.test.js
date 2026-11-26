@@ -1,10 +1,11 @@
 const request = require('supertest');
 const { TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 const { createApp } = require('../../app');
+const { authHeader, sessionLookup } = require('../helpers/auth');
 
 function setup(role = 'supervisor') {
   const models = {
-    users: { tableName: 'Users', get: jest.fn().mockResolvedValue({ id: role === 'parent' ? 'parent-1' : `${role}-1`, role }) }, identityClaims: { get: jest.fn().mockResolvedValue({ user_id: role === 'parent' ? 'parent-1' : `${role}-1` }) }, auditLogs: { tableName: 'AuditLogs' },
+    users: { tableName: 'Users', get: jest.fn().mockResolvedValue({ id: role === 'parent' ? 'parent-1' : `${role}-1`, role }) }, sessions: sessionLookup(role === 'parent' ? 'parent-1' : `${role}-1`), auditLogs: { tableName: 'AuditLogs' },
     attendance: { tableName: 'Attendance', get: jest.fn(), findByTripId: jest.fn().mockResolvedValue([]), queryPage: jest.fn().mockResolvedValue({ items: [], lastEvaluatedKey: null }), create: jest.fn(), update: jest.fn() },
     notificationOutbox: { tableName: 'NotificationOutbox' },
     trips: { get: jest.fn().mockResolvedValue({ id: 'trip-1', bus_id: 'bus-1', route_id: 'route-1' }) },
@@ -19,7 +20,7 @@ function setup(role = 'supervisor') {
   };
   return { app: createApp({ services, config: { corsOrigins: [], sessionTtlSeconds: 28800 } }), services };
 }
-const authFor = (role = 'supervisor') => ({ 'X-IAM-User-Arn': `arn:aws:sts::000000000000:assumed-role/AWSReservedSSO_BusTracker${role === 'supervisor' ? 'Coordinators' : role === 'parent' ? 'Parents' : 'Admins'}_abc/${role === 'parent' ? 'parent-1' : `${role}-1`}` });
+const authFor = () => authHeader();
 const auth = authFor();
 
 test('supervisor marks own-bus attendance and atomically queues a parent notification', async () => {

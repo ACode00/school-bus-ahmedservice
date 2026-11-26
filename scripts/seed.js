@@ -1,11 +1,11 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const bcrypt = require('bcryptjs');
 const { TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 const { loadConfig } = require('../config/env');
 const { createAwsClients } = require('../config/aws-clients');
 const { createModels } = require('../models');
-const { DescribeUserCommand } = require('@aws-sdk/client-identitystore');
 
 const routeFixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data/routes.json'), 'utf8'));
 const holidayFixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data/holidays.json'), 'utf8'));
@@ -15,9 +15,11 @@ function getSeedConfig(env = process.env) {
   const accounts = {};
   for (const role of ['admin', 'supervisor', 'parent']) {
     const prefix = `SEED_${role.toUpperCase()}`;
-    const identityStoreUserId = env[`${prefix}_IDENTITY_STORE_USER_ID`]?.trim();
-    if (!identityStoreUserId) throw new Error(`${prefix}_IDENTITY_STORE_USER_ID is required`);
-    accounts[role] = { identityStoreUserId, role };
+    const email = env[`${prefix}_EMAIL`]?.trim().toLowerCase();
+    const password = env[`${prefix}_PASSWORD`];
+    const name = env[`${prefix}_NAME`]?.trim() || role;
+    if (!email || !password || Buffer.byteLength(password, 'utf8') < 8 || Buffer.byteLength(password, 'utf8') > 72) throw new Error(`${prefix}_EMAIL and an 8-72 byte ${prefix}_PASSWORD are required`);
+    accounts[role] = { email, password, name, role };
   }
   return accounts;
 }
@@ -26,49 +28,36 @@ function isConditionalConflict(error) {
   return ['ConditionalCheckFailedException', 'TransactionCanceledException'].includes(error?.name);
 }
 
-async function seedAccount({ account, identityStore, identityStoreId, db, models }) {
-  const existingClaim = await models.identityClaims.get({ identity_store_user_id: account.identityStoreUserId });
+async function seedAccount({ account, db, models }) {
+  const existingClaim = await models.userEmails.get({ email: account.email });
   if (existingClaim) {
     const existingUser = await models.users.get({ id: existingClaim.user_id });
     if (!existingUser || existingUser.role !== account.role) {
-      throw new Error(`Identity Store user ${account.identityStoreUserId} is already assigned to a different role`);
+      throw new Error(`Seed email ${account.email} is already assigned to a different role`);
     }
     return existingUser;
   }
 
-  const identity = await identityStore.send(new DescribeUserCommand({ IdentityStoreId: identityStoreId, UserId: account.identityStoreUserId }));
-  const email = identity.Emails?.find((entry) => entry.Primary)?.Value || identity.Emails?.[0]?.Value;
-  if (!identity.UserId || !email) throw new Error(`Identity Store user ${account.identityStoreUserId} must include an email`);
   const user = {
-    id: crypto.randomUUID(), identity_store_user_id: account.identityStoreUserId,
-    name: identity.DisplayName || identity.UserName,
-    email: email.toLowerCase(),
+    id: crypto.randomUUID(), name: account.name, email: account.email,
+    password_hash: await bcrypt.hash(account.password, 12),
     role: account.role,
     created_at: new Date().toISOString(),
   };
   try {
     await db.send(new TransactWriteCommand({
       TransactItems: [
-        {
-          Put: {
-            TableName: models.users.tableName,
-            Item: user,
-            ConditionExpression: 'attribute_not_exists(#id)',
-            ExpressionAttributeNames: { '#id': 'id' },
-          },
-        },
-        {
-          Put: { TableName: models.identityClaims.tableName, Item: { identity_store_user_id: account.identityStoreUserId, user_id: user.id, created_at: user.created_at }, ConditionExpression: 'attribute_not_exists(#identity)', ExpressionAttributeNames: { '#identity': 'identity_store_user_id' } },
-        },
+        { Put: { TableName: models.userEmails.tableName, Item: { email: account.email, user_id: user.id, created_at: user.created_at }, ConditionExpression: 'attribute_not_exists(#email)', ExpressionAttributeNames: { '#email': 'email' } } },
+        { Put: { TableName: models.users.tableName, Item: user, ConditionExpression: 'attribute_not_exists(#id)', ExpressionAttributeNames: { '#id': 'id' } } },
       ],
     }));
     return user;
   } catch (error) {
     if (!isConditionalConflict(error)) throw error;
-    const claim = await models.identityClaims.get({ identity_store_user_id: account.identityStoreUserId });
+    const claim = await models.userEmails.get({ email: account.email });
     const winner = claim && await models.users.get({ id: claim.user_id });
     if (winner?.role === account.role) return winner;
-    throw new Error(`Identity Store user ${account.identityStoreUserId} was claimed concurrently`);
+    throw new Error(`Seed email ${account.email} was claimed concurrently`);
   }
 }
 
@@ -83,10 +72,10 @@ async function ensureItem(model, item, key) {
   }
 }
 
-async function seedSchoolData({ accounts, identityStore, identityStoreId, db, models }) {
+async function seedSchoolData({ accounts, db, models }) {
   const users = {};
   for (const role of ['admin', 'supervisor', 'parent']) {
-    users[role] = await seedAccount({ account: accounts[role], identityStore, identityStoreId, db, models });
+    users[role] = await seedAccount({ account: accounts[role], db, models });
   }
 
   const fixture = routeFixture;
@@ -116,9 +105,7 @@ async function seedSampleData({ env = process.env, clients, models } = {}) {
   const accounts = getSeedConfig(env);
   if (!accounts) return { skipped: true };
   if (!clients?.dynamo || !models) throw new Error('Floci clients and models are required when sample seeding is enabled');
-  const identityStoreId = env.SSO_IDENTITY_STORE_ID;
-  if (!identityStoreId) throw new Error('SSO_IDENTITY_STORE_ID is required when sample seeding is enabled');
-  const result = await seedSchoolData({ accounts, identityStore: clients.identityStore, identityStoreId, db: clients.dynamo, models });
+  const result = await seedSchoolData({ accounts, db: clients.dynamo, models });
   return { skipped: false, ...result };
 }
 

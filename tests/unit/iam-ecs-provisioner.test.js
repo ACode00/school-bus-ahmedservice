@@ -20,7 +20,7 @@ test('IAM provisioning separates API, worker, and execution permissions', async 
   const apiSqs = policies.BusTrackerApiTaskRole.Statement.find((item) => item.Action.some((action) => action.startsWith('sqs:')));
   const workerSqs = policies.BusTrackerWorkerTaskRole.Statement.find((item) => item.Action.some((action) => action.startsWith('sqs:')));
   expect(apiSqs.Action).toEqual(['sqs:GetQueueUrl', 'sqs:SendMessage']);
-  expect(policies.BusTrackerApiTaskRole.Statement.find((item) => item.Action.includes('identitystore:DescribeUser'))).toMatchObject({ Resource: ['arn:aws:identitystore::000000000000:identitystore/d-store-1'] });
+  expect(policies.BusTrackerApiTaskRole.Statement.some((item) => item.Action.includes('identitystore:DescribeUser'))).toBe(false);
   expect(workerSqs.Action).toEqual(['sqs:GetQueueUrl', 'sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage']);
   const alertPolicy = policies.BusTrackerWorkerTaskRole.Statement.find((item) => item.Resource.includes('arn:aws:dynamodb:us-east-1:000000000000:table/Alerts'));
   const outboxPolicy = policies.BusTrackerWorkerTaskRole.Statement.find((item) => item.Resource.includes('arn:aws:dynamodb:us-east-1:000000000000:table/NotificationOutbox'));
@@ -66,7 +66,7 @@ test('container setup runs backend beside persistent Floci and wires health chec
   expect(compose).toContain('http://floci:4566');
   expect(compose).toContain('school-bus-tracker-api');
   expect(compose).toContain('school-bus-tracker-worker');
-  expect(compose).toContain('API_GATEWAY_AUTH_REQUIRED');
+  expect(compose).not.toContain('API_GATEWAY_AUTH_REQUIRED');
   expect(compose).not.toMatch(/ports:\s*\n\s*-\s*['"]?3000:3000/);
   expect(compose).toContain('API_BACKEND_URL: http://backend:3000');
   expect(compose).toContain('ECS_DESIRED_COUNT: "0"');

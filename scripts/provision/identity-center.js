@@ -89,6 +89,9 @@ async function ensureAssignment(ssoAdmin, { instanceArn, permissionSetArn, accou
     InstanceArn: instanceArn, TargetId: accountId, TargetType: 'AWS_ACCOUNT',
     PermissionSetArn: permissionSetArn, PrincipalType: 'GROUP', PrincipalId: principalId,
   }));
+  const immediateStatus = response.AccountAssignmentCreationStatus?.Status;
+  if (immediateStatus === 'SUCCEEDED') return;
+  if (['FAILED', 'CANCELLED'].includes(immediateStatus)) throw new Error(`Identity Center assignment failed: ${response.AccountAssignmentCreationStatus?.FailureReason || immediateStatus}`);
   const requestId = response.AccountAssignmentCreationStatus?.RequestId;
   if (!requestId) throw new Error(`Identity Center did not return an account-assignment request for ${permissionSetArn}`);
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {

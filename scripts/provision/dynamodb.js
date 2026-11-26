@@ -1,6 +1,8 @@
 const {
   CreateTableCommand,
+  DescribeTimeToLiveCommand,
   DescribeTableCommand,
+  UpdateTimeToLiveCommand,
   ResourceInUseException,
   ResourceNotFoundException,
 } = require('@aws-sdk/client-dynamodb');
@@ -38,6 +40,8 @@ function getTableDefinitions() {
   const t = TABLE_NAMES;
   return [
     table({ name: t.users, indexes: [index('email-index', 'email')] }),
+    table({ name: t.sessions, indexes: [index('token-hash-index', 'token_hash')] }),
+    table({ name: t.userEmails, partitionKey: 'email' }),
     table({ name: t.routes, indexes: [index('name-index', 'name'), index('area-index', 'area')] }),
     table({ name: t.stops, indexes: [index('route-id-index', 'route_id')] }),
     table({ name: t.buses, indexes: [index('route-id-index', 'route_id'), index('supervisor-id-index', 'supervisor_id')] }),
@@ -96,6 +100,14 @@ async function provisionDynamoDB({ dynamoClient }) {
   const results = [];
   for (const definition of definitions) {
     results.push({ table: definition.TableName, result: await ensureTable(dynamoClient, definition) });
+  }
+  const ttl = await dynamoClient.send(new DescribeTimeToLiveCommand({ TableName: TABLE_NAMES.sessions }));
+  const ttlDescription = ttl.TimeToLiveDescription || {};
+  if (!['ENABLED', 'ENABLING'].includes(ttlDescription.TimeToLiveStatus) || ttlDescription.AttributeName !== 'expires_at') {
+    await dynamoClient.send(new UpdateTimeToLiveCommand({
+      TableName: TABLE_NAMES.sessions,
+      TimeToLiveSpecification: { AttributeName: 'expires_at', Enabled: true },
+    }));
   }
   return results;
 }

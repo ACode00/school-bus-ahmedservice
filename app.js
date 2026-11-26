@@ -7,6 +7,7 @@ const { errorHandler, AppError } = require('./middleware/error-handler');
 const { requestLogger } = require('./middleware/request-logger');
 const healthRoutes = require('./routes/health.routes');
 const { createUsersRouter } = require('./routes/users.routes');
+const { createSessionsRouter } = require('./routes/sessions.routes');
 const { createRoutesRouter } = require('./routes/routes.routes');
 const { createStudentsRouter } = require('./routes/students.routes');
 const { createTripsRouter } = require('./routes/trips.routes');
@@ -35,7 +36,7 @@ function createApp({ services = {}, config = loadConfig(process.env) } = {}) {
       callback(new AppError(403, 'CORS_ORIGIN_DENIED', 'Origin is not allowed'));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id', 'X-Amz-Date', 'X-Amz-Security-Token', 'X-Amz-Content-Sha256'],
     exposedHeaders: ['X-Cache', 'X-Next-Cursor', 'X-Request-Id'],
     maxAge: 600,
   }));
@@ -45,6 +46,7 @@ function createApp({ services = {}, config = loadConfig(process.env) } = {}) {
 
   if (services.db && services.models) {
     app.use('/api/users', createUsersRouter({ ...services, logger }));
+    app.use('/api/sessions', createSessionsRouter({ ...services, logger }));
     app.use('/api/routes', createRoutesRouter({ ...services, logger }));
     app.use('/api/stops', createStopsRouter({ ...services, logger }));
     app.use('/api/students', createStudentsRouter({ ...services, logger }));

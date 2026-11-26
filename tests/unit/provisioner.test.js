@@ -6,12 +6,14 @@ describe('DynamoDB bootstrap definitions', () => {
     const definitions = getTableDefinitions();
     const byName = Object.fromEntries(definitions.map((table) => [table.TableName, table]));
 
-    expect(definitions).toHaveLength(14);
+    expect(definitions).toHaveLength(16);
     expect(byName.TripStops.KeySchema).toEqual([
       { AttributeName: 'trip_id', KeyType: 'HASH' },
       { AttributeName: 'stop_id', KeyType: 'RANGE' },
     ]);
     expect(byName.Users.GlobalSecondaryIndexes.map((index) => index.IndexName)).toContain('email-index');
+    expect(byName.Sessions.GlobalSecondaryIndexes.map((index) => index.IndexName)).toContain('token-hash-index');
+    expect(byName.UserEmails.KeySchema).toEqual([{ AttributeName: 'email', KeyType: 'HASH' }]);
     expect(byName.IdentityClaims.KeySchema).toEqual([{ AttributeName: 'identity_store_user_id', KeyType: 'HASH' }]);
     expect(byName.NotificationOutbox.GlobalSecondaryIndexes[0].KeySchema).toEqual([
       { AttributeName: 'status', KeyType: 'HASH' },

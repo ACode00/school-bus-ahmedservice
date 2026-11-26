@@ -17,7 +17,16 @@ class EtaService {
       windows.sort((a, b) => (order.get(a.stop_id) ?? Infinity) - (order.get(b.stop_id) ?? Infinity));
       const stopById = new Map(stops.map((stop) => [stop.id, stop]));
       const schedule = windows.map((window) => ({ ...window, name: stopById.get(window.stop_id)?.name, stop_order: stopById.get(window.stop_id)?.stop_order }));
-      return { trip_id: trip.id, route_id: trip.route_id, bus_id: trip.bus_id, status: trip.status, stops: schedule };
+      return {
+        trip_id: trip.id,
+        route_id: trip.route_id,
+        bus_id: trip.bus_id,
+        run_type: trip.run_type,
+        service_date: trip.service_date || trip.date,
+        cancelled_date: trip.cancelled_date,
+        status: trip.status,
+        stops: schedule,
+      };
     });
     return result;
   }

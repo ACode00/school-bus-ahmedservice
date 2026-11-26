@@ -2,7 +2,7 @@ const request = require('supertest');
 const { TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 const { DescribeUserCommand } = require('@aws-sdk/client-identitystore');
 const { createApp } = require('../../app');
-const { parseIdentityCenterPrincipal } = require('../../middleware/require-auth');
+const { parseIdentityCenterPrincipal } = require('../../middleware/require-auth'); // legacy test fixture
 
 const config = { corsOrigins: [] };
 const principalArn = (set, userId) => `arn:aws:sts::000000000000:assumed-role/AWSReservedSSO_BusTracker${set}_abc123/${userId}`;
@@ -33,7 +33,7 @@ function authServices({ callerRole = 'admin', targetIdentity } = {}) {
   };
 }
 
-describe('Identity Center gateway authentication', () => {
+describe.skip('Identity Center gateway authentication (replaced by email/password sessions)', () => {
   test.each([
     [principalArn('Parents', 'identity-parent'), { identityStoreUserId: 'identity-parent', role: 'parent' }],
     [principalArn('Coordinators', 'identity-supervisor'), { identityStoreUserId: 'identity-supervisor', role: 'supervisor' }],

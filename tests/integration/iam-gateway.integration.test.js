@@ -5,17 +5,15 @@ const { loadConfig } = require('../../config/env');
 const { createAwsClients } = require('../../config/aws-clients');
 const { createModels } = require('../../models');
 const { AuditService } = require('../../services/audit.service');
+const { createBearerSession } = require('../helpers/auth');
 
 const enabled = process.env.RUN_FLOCI_INTEGRATION === '1';
 const suite = enabled ? describe : describe.skip;
-const roleSet = { admin: 'Admins', supervisor: 'Coordinators', parent: 'Parents' };
-
-suite('gateway role profiles and ownership against Floci', () => {
+suite('bearer role profiles and ownership against Floci', () => {
   test('each role gets its allowed methods, role denials hold, and child/bus ownership is enforced', async () => {
     const config = loadConfig(process.env); const clients = createAwsClients(config); const models = createModels({ client: clients.dynamo });
     const suffix = crypto.randomUUID(); const id = (prefix) => `${prefix}-${suffix}`;
     const users = { admin: id('admin'), supervisor: id('supervisor'), parent: id('parent'), otherParent: id('other-parent') };
-    const identities = Object.fromEntries(Object.keys(users).map((role) => [role, id(`ic-${role}`)]));
     const data = { route: id('route'), bus: id('bus'), otherBus: id('other-bus'), trip: id('trip'), otherTrip: id('other-trip'), student: id('student'), otherStudent: id('other-student'), routeMutation: id('route-created') };
     const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
     const cacheEntries = new Map();
@@ -25,12 +23,14 @@ suite('gateway role profiles and ownership against Floci', () => {
       async invalidate(key) { cacheEntries.delete(key); },
     };
     const app = createApp({ config, services: { ...clients, db: clients.dynamo, models, logger, cache, auditService: new AuditService({ model: models.auditLogs, logger }) } });
-    const auth = (role) => ({ 'X-IAM-User-Arn': `arn:aws:sts::000000000000:assumed-role/AWSReservedSSO_BusTracker${roleSet[role]}_abc/${identities[role]}` });
+    const authHeaders = {}; const sessionIds = [];
+    const auth = (role) => authHeaders[role];
     let createdRouteId;
     try {
       for (const [role, userId] of Object.entries(users)) {
-        await models.users.create({ id: userId, identity_store_user_id: identities[role], name: role, email: `${id(role)}@example.test`, role: role === 'otherParent' ? 'parent' : role });
-        await models.identityClaims.create({ identity_store_user_id: identities[role], user_id: userId });
+        await models.users.create({ id: userId, name: role, email: `${id(role)}@example.test`, role: role === 'otherParent' ? 'parent' : role });
+        const session = await createBearerSession(models, userId);
+        authHeaders[role] = session.headers; sessionIds.push(session.id);
       }
       await models.routes.create({ id: data.route, code: suffix, name: 'IAM Test Route', area: 'Integration' });
       await models.buses.create({ id: data.bus, plate_number: id('plate'), route_id: data.route, supervisor_id: users.supervisor });
@@ -61,9 +61,7 @@ suite('gateway role profiles and ownership against Floci', () => {
       expect((await request(app).get(`/api/trips/${data.otherTrip}/attendance`).set(auth('parent'))).status).toBe(404);
       expect((await request(app).post(`/api/trips/${data.trip}/attendance`).set(auth('parent')).send({ student_id: data.student, date: '2026-11-26', status: 'boarded' })).status).toBe(403);
     } finally {
-      for (const identity_store_user_id of Object.values(identities)) {
-        await models.identityClaims.delete({ identity_store_user_id }).catch(() => {});
-      }
+      for (const sessionId of sessionIds) await models.sessions.delete({ id: sessionId }).catch(() => {});
       for (const tripId of [data.trip, data.otherTrip]) for (const row of await models.attendance.findByTripId(tripId).catch(() => [])) await models.attendance.delete({ id: row.id }).catch(() => {});
       for (const modelId of [data.student, data.otherStudent]) await models.students.delete({ id: modelId }).catch(() => {});
       for (const modelId of [data.trip, data.otherTrip]) await models.trips.delete({ id: modelId }).catch(() => {});
