@@ -1,0 +1,46 @@
+const ROLE_ROUTE_PATTERNS = Object.freeze({
+  BusTrackerParents: [
+    'GET/api/routes', 'GET/api/routes/*', 'GET/api/stops/*', 'GET/api/trips/*/eta',
+    'GET/api/trips/*/attendance', 'GET/api/holidays', 'GET/api/alerts',
+    'GET/api/alerts/current', 'PATCH/api/alerts/*/read',
+  ],
+  BusTrackerCoordinators: [
+    'GET/api/routes', 'GET/api/routes/*', 'GET/api/stops/*', 'GET/api/trips/*/eta',
+    'POST/api/trips/*/attendance', 'GET/api/trips/*/attendance', 'PATCH/api/attendance/*',
+  ],
+  BusTrackerAdmins: ['*/api/*'],
+});
+
+const API_METHODS = Object.freeze([
+  { method: 'GET', path: '/health', public: true },
+  { method: 'POST', path: '/api/users', permission: 'POST/api/users' },
+  { method: 'GET', path: '/api/routes', permission: 'GET/api/routes' },
+  { method: 'GET', path: '/api/routes/{id}', permission: 'GET/api/routes/*' },
+  { method: 'GET', path: '/api/routes/{id}/stops', permission: 'GET/api/routes/*' },
+  { method: 'GET', path: '/api/routes/stops/{id}', permission: 'GET/api/routes/*' },
+  { method: 'GET', path: '/api/stops/{id}', permission: 'GET/api/stops/*' },
+  { method: 'POST', path: '/api/routes', permission: 'POST/api/routes' },
+  { method: 'PATCH', path: '/api/routes/{id}', permission: 'PATCH/api/routes/*' },
+  { method: 'DELETE', path: '/api/routes/{id}', permission: 'DELETE/api/routes/*' },
+  { method: 'POST', path: '/api/routes/{id}/stops', permission: 'POST/api/routes/*/stops' },
+  { method: 'PATCH', path: '/api/routes/{id}/stops/{stopId}', permission: 'PATCH/api/routes/*/stops/*' },
+  { method: 'DELETE', path: '/api/routes/{id}/stops/{stopId}', permission: 'DELETE/api/routes/*/stops/*' },
+  { method: 'POST', path: '/api/students', permission: 'POST/api/students' },
+  { method: 'GET', path: '/api/trips/{id}/eta', permission: 'GET/api/trips/*/eta' },
+  { method: 'PUT', path: '/api/trips/{id}/times', permission: 'PUT/api/trips/*/times' },
+  { method: 'PATCH', path: '/api/trips/{id}/status', permission: 'PATCH/api/trips/*/status' },
+  { method: 'POST', path: '/api/trips/{id}/attendance', permission: 'POST/api/trips/*/attendance' },
+  { method: 'GET', path: '/api/trips/{id}/attendance', permission: 'GET/api/trips/*/attendance' },
+  { method: 'PATCH', path: '/api/attendance/{id}', permission: 'PATCH/api/attendance/*' },
+  { method: 'GET', path: '/api/holidays', permission: 'GET/api/holidays' },
+  { method: 'POST', path: '/api/holidays', permission: 'POST/api/holidays' },
+  { method: 'PATCH', path: '/api/holidays/{id}', permission: 'PATCH/api/holidays/*' },
+  { method: 'DELETE', path: '/api/holidays/{id}', permission: 'DELETE/api/holidays/*' },
+  { method: 'GET', path: '/api/alerts', permission: 'GET/api/alerts' },
+  { method: 'GET', path: '/api/alerts/current', permission: 'GET/api/alerts/current' },
+  { method: 'PATCH', path: '/api/alerts/{id}/read', permission: 'PATCH/api/alerts/*/read' },
+]);
+
+for (const rolePatterns of Object.values(ROLE_ROUTE_PATTERNS)) Object.freeze(rolePatterns);
+Object.freeze(ROLE_ROUTE_PATTERNS);
+module.exports = { ROLE_ROUTE_PATTERNS, API_METHODS };

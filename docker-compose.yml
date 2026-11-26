@@ -1,0 +1,95 @@
+name: cloud-issue-floci
+
+services:
+  floci:
+    image: floci/floci:latest
+    container_name: floci
+    ports:
+      - "127.0.0.1:4566:4566"
+      - "127.0.0.1:6379-6399:6379-6399"
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_STORAGE_MODE: persistent
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+      FLOCI_SERVICES_UI_BIND_ADDRESS: "127.0.0.1"
+      FLOCI_BASE_URL: http://floci:4566
+      FLOCI_SERVICES_UI_IMAGE: ghcr.io/ofsazib/floci-dash:0.4.0
+      FLOCI_SERVICES_UI_CONTAINER_NAME: floci-dash
+      FLOCI_SERVICES_UI_INTERNAL_PORT: "3000"
+      FLOCI_SERVICES_UI_ENDPOINT_ENV: FLOCI_URL
+      FLOCI_SERVICES_UI_STATUS_PATH: /api/healthz
+      FLOCI_SERVICES_ELASTICACHE_PROXY_BASE_PORT: "6379"
+      FLOCI_SERVICES_ELASTICACHE_PROXY_MAX_PORT: "6399"
+    volumes:
+      - floci-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+  backend:
+    build: .
+    image: school-bus-tracker-backend:local
+    container_name: school-bus-tracker-api
+    depends_on:
+      floci:
+        condition: service_healthy
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      FLOCI_ENDPOINT: http://floci:4566
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_NAME: bus-tracker-notifications-queue
+      CLOUDWATCH_LOG_GROUP: /school-bus-tracker/backend
+      CLOUDWATCH_LOG_STREAM: audit
+      CACHE_TTL_MS: ${CACHE_TTL_MS:-60000}
+      CACHE_URL: redis://floci:6379
+      ENABLE_NOTIFICATION_WORKER: "true"
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-false}
+      SSO_IDENTITY_STORE_ID: ${SSO_IDENTITY_STORE_ID:-}
+      SSO_INSTANCE_ARN: ${SSO_INSTANCE_ARN:-}
+      SSO_ACCOUNT_ID: ${SSO_ACCOUNT_ID:-000000000000}
+      SSO_REGION: ${SSO_REGION:-us-east-1}
+      SEED_ADMIN_IDENTITY_STORE_USER_ID: ${SEED_ADMIN_IDENTITY_STORE_USER_ID:-}
+      SEED_SUPERVISOR_IDENTITY_STORE_USER_ID: ${SEED_SUPERVISOR_IDENTITY_STORE_USER_ID:-}
+      SEED_PARENT_IDENTITY_STORE_USER_ID: ${SEED_PARENT_IDENTITY_STORE_USER_ID:-}
+      API_BACKEND_URL: http://backend:3000
+      API_GATEWAY_INVOKE_ENDPOINT: http://localhost:4566
+      API_GATEWAY_AUTH_REQUIRED: "true"
+      ECS_DESIRED_COUNT: "0"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    build: .
+    image: school-bus-tracker-backend:local
+    container_name: school-bus-tracker-worker
+    command: ["node", "worker.js"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      FLOCI_ENDPOINT: http://floci:4566
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_NAME: bus-tracker-notifications-queue
+      CLOUDWATCH_LOG_GROUP: /school-bus-tracker/backend
+      CLOUDWATCH_LOG_STREAM: worker
+      ENABLE_NOTIFICATION_WORKER: "true"
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+
+volumes:
+  floci-data:

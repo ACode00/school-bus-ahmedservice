@@ -1,0 +1,31 @@
+{
+  "route": {
+    "id": "route-cairo-demo",
+    "code": "CAI-DEMO",
+    "name": "Cairo Demo Route",
+    "area": "Maadi"
+  },
+  "stops": [
+    { "id": "stop-maadi-1", "name": "Maadi Station", "stop_order": 1 },
+    { "id": "stop-maadi-2", "name": "School Gate", "stop_order": 2 }
+  ],
+  "bus": {
+    "id": "bus-cairo-demo",
+    "plate_number": "CAI-DEMO-01"
+  },
+  "trip": {
+    "id": "trip-cairo-demo-am",
+    "run_type": "morning",
+    "status": "scheduled",
+    "cancelled_date": null
+  },
+  "tripStops": [
+    { "stop_id": "stop-maadi-1", "arrive_from": "07:10", "arrive_to": "07:20" },
+    { "stop_id": "stop-maadi-2", "arrive_from": "07:35", "arrive_to": "07:45" }
+  ],
+  "student": {
+    "id": "student-cairo-demo",
+    "name": "Demo Student",
+    "stop_id": "stop-maadi-1"
+  }
+}

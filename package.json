@@ -1,0 +1,53 @@
+{
+  "name": "school-bus-ahmedservice",
+  "version": "1.0.0",
+  "description": "ahmed's part in school-bus cloud security project",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:worker": "node worker.js",
+    "test": "jest",
+    "test:integration": "jest --runInBand tests/integration",
+    "provision": "node scripts/provision.js",
+    "seed": "node scripts/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ACode00/school-bus-ahmedservice.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@aws-sdk/client-api-gateway": "^3.1178.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.1178.0",
+    "@aws-sdk/client-dynamodb": "^3.1178.0",
+    "@aws-sdk/client-ecs": "^3.1178.0",
+    "@aws-sdk/client-elasticache": "^3.1178.0",
+    "@aws-sdk/client-iam": "^3.1178.0",
+    "@aws-sdk/client-identitystore": "^3.1178.0",
+    "@aws-sdk/client-sqs": "^3.1178.0",
+    "@aws-sdk/client-sso": "^3.1178.0",
+    "@aws-sdk/client-sso-admin": "^3.1178.0",
+    "@aws-sdk/client-sso-oidc": "^3.1178.0",
+    "@aws-sdk/lib-dynamodb": "^3.1178.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "redis": "^6.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4"
+  },
+  "bugs": {
+    "url": "https://github.com/ACode00/school-bus-ahmedservice/issues"
+  },
+  "homepage": "https://github.com/ACode00/school-bus-ahmedservice#readme"
+}

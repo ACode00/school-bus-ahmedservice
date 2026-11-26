@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+node_modules/
+coverage/
+npm-debug.log*
+floci-data/
+.superpowers/sdd/*
+/docs
+AGENTS.md
+
