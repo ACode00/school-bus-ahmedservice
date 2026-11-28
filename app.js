@@ -13,8 +13,6 @@ const { createStudentsRouter } = require('./routes/students.routes');
 const { createTripsRouter } = require('./routes/trips.routes');
 const { createStopsRouter } = require('./routes/stops.routes');
 const { createTripAttendanceRouter, createAttendanceRouter } = require('./routes/attendance.routes');
-const { createHolidaysRouter } = require('./routes/holidays.routes');
-const { createAlertsRouter } = require('./routes/alerts.routes');
 
 function createApp({ services = {}, config = loadConfig(process.env) } = {}) {
   const app = express();
@@ -53,8 +51,6 @@ function createApp({ services = {}, config = loadConfig(process.env) } = {}) {
     app.use('/api/trips', createTripsRouter({ ...services, logger }));
     app.use('/api/trips', createTripAttendanceRouter({ ...services, logger }));
     app.use('/api/attendance', createAttendanceRouter({ ...services, logger }));
-    app.use('/api/holidays', createHolidaysRouter({ ...services, logger }));
-    app.use('/api/alerts', createAlertsRouter({ ...services, logger }));
   }
 
   app.use((req, res, next) => {

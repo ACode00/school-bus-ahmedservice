@@ -8,7 +8,6 @@ const { createAwsClients } = require('../config/aws-clients');
 const { createModels } = require('../models');
 
 const routeFixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data/routes.json'), 'utf8'));
-const holidayFixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-data/holidays.json'), 'utf8'));
 
 function getSeedConfig(env = process.env) {
   if (env.SEED_SAMPLE_DATA !== 'true') return null;
@@ -94,9 +93,6 @@ async function seedSchoolData({ accounts, db, models }) {
   }
   const student = { ...fixture.student, parent_id: users.parent.id, bus_id: bus.id };
   await ensureItem(models.students, student, { id: student.id });
-  for (const holiday of holidayFixtures) {
-    await ensureItem(models.holidays, holiday, { id: holiday.id });
-  }
 
   return { users: Object.fromEntries(Object.entries(users).map(([role, user]) => [role, user.id])), route_id: route.id };
 }

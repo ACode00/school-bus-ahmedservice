@@ -1,6 +1,6 @@
 # School Bus Route Tracker Backend
 
-Node.js and Express backend for Team 14 — Lab Group A-2. It supports administrators, bus supervisors (coordinators), and parents. Administrators manage routes, student assignments, trip schedules, and holidays; supervisors record attendance for their assigned bus; parents see their own children's attendance and alerts. ETA comes from planned stop windows; this service does not use live GPS.
+Node.js and Express backend for Team 14 — Lab Group A-2. It supports administrators, bus supervisors (coordinators), and parents. Administrators manage routes, student assignments, and trip schedules; supervisors record attendance for their assigned bus; parents see their own children's attendance and alerts. ETA comes from planned stop windows; this service does not use live GPS.
 
 The service uses a Model–Controller layout and AWS SDK v3. Floci emulates DynamoDB, SQS, CloudWatch Logs, IAM, ECS, and API Gateway locally. Floci ElastiCache provides the shared Redis read cache. A separate SQS worker turns trip and attendance events into parent alerts.
 
@@ -46,9 +46,33 @@ Parents create an account with their name, email, and password on the frontend s
 
 Passwords are never returned by the API. Email uniqueness is enforced transactionally through `UserEmails`. For production deployment, serve the frontend and API over HTTPS and keep the bearer token private; configure API Gateway-to-private-ECS networking (for example VPC Link/load balancer) for AWS.
 
+### Login brute force protection
+
+After 3 wrong passwords for one email in 10 minutes, `POST /api/sessions` answers `429 TOO_MANY_LOGIN_ATTEMPTS` with a `Retry-After` header, and the email stays blocked for 10 minutes. A correct login before that resets the count. The counts are kept in Redis (ElastiCache), so every ECS copy of the API shares them. A wrong email and a wrong password give the same 401 answer. See `services/login-limiter.service.js`.
+
+## Logging and monitoring
+
+Every request and response is logged as one JSON line. Every 401, 403 and 429 answer is also logged as a `SECURITY` line with the reason, method, path and request id. The token, the Authorization header and the password are never logged. The CloudWatch provisioner (`scripts/provision/cloudwatch.js`) creates two metric filters on `/school-bus-tracker/backend`, each with an alarm:
+
+| Alarm | Metric filter pattern | Fires when |
+| --- | --- | --- |
+| schedule-arrival-security-denied | `SECURITY` | 5 or more refused requests in 5 minutes |
+| schedule-arrival-server-errors | `"Request failed"` | any 5xx answer in 5 minutes |
+
+## Security documents
+
+- `docs/threat-model.md`: STRIDE threat model with 11 threats, each linked to the code that blocks it and the test that proves it.
+- `docs/security-tests.md`: 12 security tests run on Floci, with outputs in `evidence/`.
+- `docs/load-test.md` and `k6/schedule-load.js`: Lab 8 load test on the trip ETA.
+- `docs/finish-notes.md`: a short summary of the latest changes.
+
+## Running with the other team services (one Floci)
+
+The whole app (this service, Ali's Favorites & Alerts, Yehia's Route & Stop and the shared React frontend) must run on ONE Floci on port 4566. `docker compose up` in this repo starts its own Floci. When the other services already run on a Floci, do not start a second one: run only the `backend` and `worker` containers on the existing Floci network, then run `bash infra/bootstrap.sh`. The frontend repo has a guide for running the whole app.
+
 ## Optional sample data
 
-Sample seeding is disabled by default. Set `SEED_SAMPLE_DATA=true` and provide `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_SUPERVISOR_EMAIL`, `SEED_SUPERVISOR_PASSWORD`, `SEED_PARENT_EMAIL`, and `SEED_PARENT_PASSWORD` in `.env`, then run `npm run seed`. Seed accounts retain their specified roles; public signup cannot create admin or supervisor users. Bundled Egypt holidays are sample data, not an authoritative calendar.
+Sample seeding is disabled by default. Set `SEED_SAMPLE_DATA=true` and provide `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_SUPERVISOR_EMAIL`, `SEED_SUPERVISOR_PASSWORD`, `SEED_PARENT_EMAIL`, and `SEED_PARENT_PASSWORD` in `.env`, then run `npm run seed`. Seed accounts retain their specified roles; public signup cannot create admin or supervisor users.
 
 ## REST API routes
 
@@ -78,14 +102,9 @@ Base URL is the Floci invoke URL above. Signup, login, and GET /health are publi
 | POST /api/trips/:id/attendance | Supervisor assigned to bus | {"student_id":"student-1","date":"2026-11-26","status":"boarded"} | 201 attendance object with marked_by |
 | GET /api/trips/:id/attendance | Admin, assigned supervisor, parent of child | Optional ?limit=50&cursor=<base64url> | 200 attendance array; parents see only their children; optional X-Next-Cursor |
 | PATCH /api/attendance/:id | Admin or assigned supervisor | {"status":"dropped"} | 200 corrected attendance |
-| GET /api/holidays?year=2026 | Any linked role | Four-digit year required | 200 holiday array; X-Cache |
-| POST /api/holidays | Admin | {"date":"2026-01-07","name":"Coptic Christmas","year":"2026"} | 201 created holiday |
-| PATCH /api/holidays/:id | Admin | Non-empty subset of date, name, year | 200 updated holiday |
-| DELETE /api/holidays/:id | Admin | — | 204 |
-| GET /api/alerts | Parent | Optional ?limit=50&cursor=<base64url> | 200 alert array belonging to parent; optional X-Next-Cursor |
-| GET /api/alerts/current | Parent | Same as GET /api/alerts | 200 same alert array |
-| PATCH /api/alerts/:id/read | Parent who owns alert | — | 200 alert with is_read:true; another parent's alert is 404 |
+
+Alerts (`/api/alerts`) and holidays (`/api/holidays`) are served by the Favorites & Alerts service (Ali). This service still writes parent alerts to the `Alerts` table from the SQS worker.
 
 ## Tests
 
-Run unit tests with npm test -- --runInBand. With Floci running and initialized, optional data/cache/log integration tests run with RUN_FLOCI_INTEGRATION=1 npm run test:integration.
+Run unit tests with npm test -- --runInBand (80 passed, 13 Floci integration tests skipped). With Floci running and initialized, optional data/cache/log integration tests run with RUN_FLOCI_INTEGRATION=1 npm run test:integration.

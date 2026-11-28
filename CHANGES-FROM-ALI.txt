@@ -1,0 +1,48 @@
+Changes from Ali (28 Nov 2026)
+
+Base: your GitHub repo at commit 33434d6 ("auth update").
+Read docs/finish-notes.md first. It explains every change and the questions you may get.
+
+Changed
+- app.js: removed the /api/alerts and /api/holidays routers (Ali's service owns them).
+- config/api-route-permissions.js: removed the alerts and holidays permissions and gateway routes.
+- config/aws-clients.js: added the CloudWatch client (for alarms).
+- controllers/sessions.controller.js: login is blocked for 10 minutes after 3 wrong passwords (429 + Retry-After).
+- middleware/error-handler.js: every 401, 403 and 429 is logged as one SECURITY line (no token, no password).
+- middleware/require-auth.js, middleware/require-role.js: removed the old auth_failure log lines (the error handler logs them now).
+- scripts/provision/cloudwatch.js: adds 2 metric filters (SECURITY, 5xx) and 2 alarms.
+- scripts/seed.js: no more sample holidays (their ids blocked Ali's Calendarific load).
+- tests/integration/iam-gateway.integration.test.js: removed the /api/alerts check.
+- .env.example: every variable the code reads, with comments, placeholders only.
+- .gitignore: added *.log and *.zip. The 4 new files in docs/ are now tracked; anything else you keep in docs/ stays ignored.
+- README.md: login protection, logging and monitoring, security docs, one-Floci note.
+- package.json, package-lock.json: added @aws-sdk/client-cloudwatch.
+
+Added
+- services/login-limiter.service.js
+- tests/unit/login-limit.test.js (10 tests)
+- tests/unit/removed-routes.test.js
+- tests/unit/notifications.test.js (your 2 worker tests, moved here)
+- docs/threat-model.md, docs/security-tests.md, docs/load-test.md, docs/finish-notes.md
+- k6/schedule-load.js
+- evidence/README.md
+
+Deleted
+- controllers/alerts.controller.js, controllers/holidays.controller.js
+- routes/alerts.routes.js, routes/holidays.routes.js
+- scripts/seed-data/holidays.json
+- tests/unit/notifications-holidays.test.js
+
+Tests: npm test gives 80 passed, 13 skipped (Floci integration tests), 0 failed.
+
+How to push it to your repo (school-bus-ahmedservice)
+Do NOT delete your folder first: it has your .env and other local files that git ignores.
+1. In your local clone: git pull
+2. Copy everything from this folder into your repo folder, and choose "Replace" for every file.
+3. Delete the 6 files listed under "Deleted" above, if they are still there.
+4. npm ci
+5. npm test   (expect 80 passed, 13 skipped)
+6. git add -A
+7. git status   (check: only the files listed above, no .env, no node_modules)
+8. git commit -m "Add login rate limit, CloudWatch alarms, security docs; remove alerts and holidays"
+9. git push

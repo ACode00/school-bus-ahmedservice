@@ -6,6 +6,12 @@ coverage/
 npm-debug.log*
 floci-data/
 .superpowers/sdd/*
-/docs
+/docs/*
+!/docs/threat-model.md
+!/docs/security-tests.md
+!/docs/load-test.md
+!/docs/finish-notes.md
 AGENTS.md
 
+*.log
+*.zip

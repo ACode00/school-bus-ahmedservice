@@ -49,7 +49,6 @@ suite('bearer role profiles and ownership against Floci', () => {
       const createRoute = await request(app).post('/api/routes').set(auth('admin')).send({ code: 'A', name: 'Allowed', area: 'Test' });
       expect(createRoute.status).toBe(201);
       createdRouteId = createRoute.body.id;
-      expect((await request(app).get('/api/alerts').set(auth('admin'))).status).toBe(403);
 
       const markOwnBus = await request(app).post(`/api/trips/${data.trip}/attendance`).set(auth('supervisor')).send({ student_id: data.student, date: '2026-11-26', status: 'boarded' });
       expect(markOwnBus.status).toBe(201);

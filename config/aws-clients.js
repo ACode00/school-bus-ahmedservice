@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
 const { SQSClient } = require('@aws-sdk/client-sqs');
+const { CloudWatchClient } = require('@aws-sdk/client-cloudwatch');
 const { CloudWatchLogsClient } = require('@aws-sdk/client-cloudwatch-logs');
 const { IAMClient } = require('@aws-sdk/client-iam');
 const { ECSClient } = require('@aws-sdk/client-ecs');
@@ -41,6 +42,7 @@ function createAwsClients(config = {}) {
     dynamo: DynamoDBDocumentClient.from(dynamoClient),
     sqs: new SQSClient(shared),
     cloudWatchLogs: new CloudWatchLogsClient(shared),
+    cloudWatch: new CloudWatchClient(shared),
     iam: new IAMClient(shared),
     ecs: new ECSClient(shared),
     elasticache: new ElastiCacheClient(shared),

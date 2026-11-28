@@ -16,7 +16,6 @@ function requireAuth({ models, auditService, logger }) {
       const now = Math.floor(Date.now() / 1000);
       if (!session || Number(session.expires_at) <= now) {
         if (session) await models.sessions.delete({ id: session.id });
-        logger?.warn({ event: 'auth_failure', request_id: req.id, status: 401 });
         await recordSafely(auditService, { userId: 'anonymous', event: 'authentication_failed', status: 'failure', metadata: { method: req.method, path: req.path } }, logger);
         return next(new AppError(401, 'UNAUTHENTICATED', 'A valid login session is required'));
       }
